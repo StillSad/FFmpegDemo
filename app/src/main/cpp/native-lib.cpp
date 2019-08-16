@@ -2,7 +2,7 @@
 #include <string>
 #include "JavaCallHelper.h"
 #include "IceFFmpeg.h"
-
+#include <android/native_window_jni.h>
 extern "C" {
 #include <libavutil/imgutils.h>
 
@@ -11,12 +11,41 @@ extern "C" {
 JavaVM *javaVM = 0;
 JavaCallHelper *javaCallHelper = 0;
 IceFFmpeg *fFmpeg = 0;
-
+ANativeWindow *window = 0;
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 jint JNI_OnLoad(JavaVM *vm, void *reserved) {
     javaVM = vm;
     return JNI_VERSION_1_4;
 }
+
+void renderFrame(uint8_t *src_data,int src_lineSize,int width,int height) {
+    pthread_mutex_lock(&mutex);
+    if (!window) {
+        pthread_mutex_unlock(&mutex);
+        return;
+    }
+    ANativeWindow_setBuffersGeometry(window,width,
+            height,WINDOW_FORMAT_RGBA_8888);
+    ANativeWindow_Buffer windowBuffer;
+    if (ANativeWindow_lock(window,&windowBuffer,0)) {
+        ANativeWindow_release(window);
+        window = 0;
+        pthread_mutex_unlock(&mutex);
+        return;
+    }
+
+    uint8_t  *dst_data = static_cast<uint8_t *>(windowBuffer.bits);
+    int dst_lineSize = windowBuffer.stride * 4;
+
+    for (int i = 0; i < windowBuffer.height; ++i) {
+        memcpy(dst_data + i* dst_lineSize,src_data + i * src_lineSize,dst_lineSize);
+    }
+    ANativeWindow_unlockAndPost(window);
+    pthread_mutex_unlock(&mutex);
+}
+
+
 
 extern "C" JNIEXPORT jstring JNICALL
 Java_com_ice_ffmpegdemo_MainActivity_stringFromJNI(
@@ -33,14 +62,31 @@ Java_com_ice_ffmpegdemo_ICEPlayer_prepareNative(JNIEnv *env, jobject instance,
 
     javaCallHelper = new JavaCallHelper(javaVM,env,instance);
     fFmpeg = new IceFFmpeg(javaCallHelper, const_cast<char *>(dataSource));
+    fFmpeg->setRenderCallback(renderFrame);
     fFmpeg->prepare();
 
     env->ReleaseStringUTFChars(dataSource_, dataSource);
-}extern "C"
+}
+
+extern "C"
 JNIEXPORT void JNICALL
 Java_com_ice_ffmpegdemo_ICEPlayer_startNative(JNIEnv *env, jobject instance) {
     if (fFmpeg) {
         fFmpeg->start();
     }
 
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_ice_ffmpegdemo_ICEPlayer_setSurfaceViewNative(JNIEnv *env, jobject thiz, jobject surface) {
+    pthread_mutex_lock(&mutex);
+
+    if(window) {
+        ANativeWindow_release(window);
+        window = 0;
+    }
+    window = ANativeWindow_fromSurface(env,surface);
+
+    pthread_mutex_unlock(&mutex);
 }

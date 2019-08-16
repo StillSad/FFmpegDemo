@@ -36,4 +36,5 @@ target_link_libraries(
         -Wl,--end-group
         log
         z
+        android
 )

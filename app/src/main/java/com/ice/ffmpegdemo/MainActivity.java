@@ -23,6 +23,7 @@ public class MainActivity extends AppCompatActivity {
         surfaceView = findViewById(R.id.surfaceView);
 
         player = new ICEPlayer();
+        player.setSurfaceView(surfaceView);
         player.setDataSource(new File(
                 Environment.getExternalStorageDirectory() + File.separator + "input.mp4").getAbsolutePath());
         player.setOnpreparedListener(new ICEPlayer.OnpreparedListener() {
@@ -37,6 +38,19 @@ public class MainActivity extends AppCompatActivity {
                 });
 
                 player.start();
+            }
+        });
+
+        player.setOnErrorListener(new ICEPlayer.OnErrorListener() {
+            @Override
+            public void onError(final int errorCode) {
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Toast.makeText(MainActivity.this, "出错了，错误码：" + errorCode,
+                                Toast.LENGTH_SHORT).show();
+                    }
+                });
             }
         });
     }

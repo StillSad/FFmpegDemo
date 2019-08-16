@@ -8,14 +8,15 @@
 #include "safe_queue.h"
 
 extern "C"{
-#include "libavcodec/avcodec.h"
+#include <libavcodec/avcodec.h>
+#include <libavutil/frame.h>
 };
 
 class BaseChannel {
 public:
-    int id;
 
-    BaseChannel(int id):id(id)
+
+    BaseChannel(int id,AVCodecContext *codecContext):id(id),codecContext(codecContext)
     {
         packets.setReleaseCallback(releaseAVPacket);
         frames.setReleaseCallback(releaseAVFrame);
@@ -45,6 +46,9 @@ public:
 
     SafeQueue<AVPacket *> packets;
     SafeQueue<AVFrame *> frames;
+    int id;
+    bool isPlaying = 0;
+    AVCodecContext *codecContext;
 };
 
 #endif //FFMPEGDEMO_BASECHANNEL_H

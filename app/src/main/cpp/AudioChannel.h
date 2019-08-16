@@ -10,7 +10,7 @@
 
 class AudioChannel: public BaseChannel{
 public:
-    AudioChannel(int id);
+    AudioChannel(int id,AVCodecContext *codecContext);
 
     ~AudioChannel();
 

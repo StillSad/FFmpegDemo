@@ -104,7 +104,9 @@ void IceFFmpeg::_prepare() {
             audioChannel = new AudioChannel(i,codecContext);
         } else if (codecParameters->codec_type == AVMEDIA_TYPE_VIDEO) {
             //视频
-            videoChannel = new VideoChannel(i,codecContext);
+            AVRational fram_rate = stream->avg_frame_rate;
+            int fps = av_q2d(fram_rate);
+            videoChannel = new VideoChannel(i,codecContext,fps);
             videoChannel->setRenderCallback(renderCallback);
         }
     }
@@ -139,6 +141,13 @@ void IceFFmpeg::start() {
 void IceFFmpeg::_start() {
     LOGD("Native _start()");
     while (isPlaying) {
+
+        //控制packets队列大小 防止内存溢出
+        if (videoChannel && videoChannel->packets.size() > 100) {
+            av_usleep(10 * 1000);
+            continue;
+        }
+
         AVPacket *packet = av_packet_alloc();
 
         int ret = av_read_frame(formatContext,packet);
@@ -160,6 +169,9 @@ void IceFFmpeg::_start() {
     }
 
     isPlaying = 0;
+    //停止解码播放（音频和视频）
+    videoChannel->stop();
+    audioChannel->stop();
 }
 
 void IceFFmpeg::setRenderCallback(RenderCallback renderCallback) {

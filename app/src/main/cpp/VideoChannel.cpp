@@ -4,7 +4,10 @@
 
 #include "VideoChannel.h"
 
-VideoChannel::VideoChannel(int id,AVCodecContext *codecContext) :BaseChannel(id,codecContext){}
+VideoChannel::VideoChannel(int id, AVCodecContext *codecContext, int fps) : BaseChannel(id,
+                                                                                        codecContext) {
+    this->fps = fps;
+}
 
 VideoChannel::~VideoChannel() {
 
@@ -34,9 +37,9 @@ void VideoChannel::start() {
     packets.setWork(1);
     frames.setWork(1);
     //解码
-    pthread_create(&pid_video_decode,0,task_video_decode,this);
+    pthread_create(&pid_video_decode, 0, task_video_decode, this);
     //播放
-    pthread_create(&pid_video_play,0,task_video_play,this);
+    pthread_create(&pid_video_play, 0, task_video_play, this);
 
 }
 
@@ -48,9 +51,8 @@ void VideoChannel::stop() {
 /**
  * 真正视频解码
  */
-void VideoChannel::video_decode(){
+void VideoChannel::video_decode() {
     LOGD("VideoChannel 视频解码");
-
     AVPacket *packet = 0;
     while (isPlaying) {
         int ret = packets.pop(packet);
@@ -64,7 +66,7 @@ void VideoChannel::video_decode(){
             continue;
         }
         //拿到了视频数据包（编码压缩了的）,需要报数据包给解码器进行解码
-        ret = avcodec_send_packet(codecContext,packet);
+        ret = avcodec_send_packet(codecContext, packet);
 
         if (ret) {
             //王解码器发送数据包失败，跳出循环
@@ -75,13 +77,18 @@ void VideoChannel::video_decode(){
 
         AVFrame *frame = av_frame_alloc();
 
-        ret = avcodec_receive_frame(codecContext,frame);
+        ret = avcodec_receive_frame(codecContext, frame);
 
         if (ret == AVERROR(EAGAIN)) {
             //重来
             continue;
         } else if (ret != 0) {
             break;
+        }
+        //控制frames大小 防止内存溢出
+        while (isPlaying && frames.size() > 100) {
+            av_usleep(10 * 1000);
+            continue;
         }
         //ret == 0 数据收发正常,成功获取到了解码后的视频原始数据包 AVFrame ，格式是 yuv
         //对frame进行处理（渲染播放）直接写？
@@ -96,16 +103,20 @@ void VideoChannel::video_play() {
 
     AVFrame *frame = 0;
 
-    uint8_t  *dst_data[4];
+    uint8_t *dst_data[4];
 
     int dst_linesize[4];
-
-    SwsContext *sws_ctx = sws_getContext(codecContext->width,codecContext->height,
-            codecContext->pix_fmt,
-            codecContext->width,codecContext->height,AV_PIX_FMT_RGBA,
-            SWS_BILINEAR,NULL,NULL,NULL);
-    av_image_alloc(dst_data,dst_linesize,
-            codecContext->width,codecContext->height,AV_PIX_FMT_RGBA,1);
+    //yuv转rgba上下文
+    SwsContext *sws_ctx = sws_getContext(codecContext->width, codecContext->height,
+                                         codecContext->pix_fmt,
+                                         codecContext->width, codecContext->height, AV_PIX_FMT_RGBA,
+                                         SWS_BILINEAR, NULL, NULL, NULL);
+    //给dst_data dst_linesize 申请内存
+    av_image_alloc(dst_data, dst_linesize,
+                   codecContext->width, codecContext->height, AV_PIX_FMT_RGBA, 1);
+    //根据fps（传入的流的平均帧率)来控制每一帧的延时时间
+    //单位秒
+    double delay_time_per_frame = 1.0 / fps;
 
     while (isPlaying) {
         int ret = frames.pop(frame);
@@ -117,11 +128,19 @@ void VideoChannel::video_play() {
             continue;
         }
 
-        sws_scale(sws_ctx,frame->data,
-                frame->linesize,0,codecContext->height,dst_data,dst_linesize);
+        //取到了yuv原始数据，下面要进行格式转换
+        sws_scale(sws_ctx, frame->data,
+                  frame->linesize, 0, codecContext->height, dst_data, dst_linesize);
 
-
-        renderCallback(dst_data[0],dst_linesize[0],codecContext->width,codecContext->height);
+        //进行休眠
+        //每一帧还有自己的额外延时时间
+        double extra_delay = frame->repeat_pict / (2 * fps);
+        double  real_delay = delay_time_per_frame + extra_delay;
+        //单位是微妙
+        av_usleep(real_delay * 1000000);
+        //dst_data：AV_PIX_FMT_RGBA格式的数据
+        //渲染
+        renderCallback(dst_data[0], dst_linesize[0], codecContext->width, codecContext->height);
         releaseAVFrame(&frame);
     }
 

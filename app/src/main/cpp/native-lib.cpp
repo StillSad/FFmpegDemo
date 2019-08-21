@@ -35,9 +35,10 @@ void renderFrame(uint8_t *src_data,int src_lineSize,int width,int height) {
         return;
     }
 
+    //把buffer中的数据进行赋值（修改）
     uint8_t  *dst_data = static_cast<uint8_t *>(windowBuffer.bits);
     int dst_lineSize = windowBuffer.stride * 4;
-
+    //逐行拷贝
     for (int i = 0; i < windowBuffer.height; ++i) {
         memcpy(dst_data + i* dst_lineSize,src_data + i * src_lineSize,dst_lineSize);
     }

@@ -135,6 +135,11 @@ void IceFFmpeg::start() {
     if(videoChannel) {
         videoChannel->start();
     }
+
+    if (audioChannel) {
+        audioChannel->start();
+    }
+
     pthread_create(&pid_start,0,task_start,this);
 }
 
@@ -158,6 +163,7 @@ void IceFFmpeg::_start() {
                 LOGD("视频入队列");
             } else if (audioChannel && packet->stream_index == audioChannel->id) {
                 LOGD("音频入队列");
+                audioChannel->packets.push(packet);
 
             }
         } else if(ret == AVERROR_EOF) {

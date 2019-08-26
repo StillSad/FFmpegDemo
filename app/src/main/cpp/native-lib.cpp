@@ -5,13 +5,13 @@
 #include <android/native_window_jni.h>
 extern "C" {
 #include <libavutil/imgutils.h>
-
 };
 
 JavaVM *javaVM = 0;
 JavaCallHelper *javaCallHelper = 0;
 IceFFmpeg *fFmpeg = 0;
 ANativeWindow *window = 0;
+//静态初始化mutex
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 jint JNI_OnLoad(JavaVM *vm, void *reserved) {
@@ -19,6 +19,7 @@ jint JNI_OnLoad(JavaVM *vm, void *reserved) {
     return JNI_VERSION_1_4;
 }
 
+//1，data;2，linesize；3，width; 4， height
 void renderFrame(uint8_t *src_data,int src_lineSize,int width,int height) {
     pthread_mutex_lock(&mutex);
     if (!window) {

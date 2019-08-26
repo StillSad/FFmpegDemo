@@ -1,6 +1,11 @@
 package com.ice.ffmpegdemo;
 
+import android.Manifest;
+import android.content.pm.PackageManager;
 import android.os.Environment;
+import android.support.annotation.NonNull;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -24,8 +29,9 @@ public class MainActivity extends AppCompatActivity {
 
         player = new ICEPlayer();
         player.setSurfaceView(surfaceView);
-        player.setDataSource(new File(
-                Environment.getExternalStorageDirectory() + File.separator + "input.mp4").getAbsolutePath());
+//        String dataSource = "http://ivi.bupt.edu.cn/hls/cctv6hd.m3u8";
+        String dataSource = new File(Environment.getExternalStorageDirectory() + File.separator + "input.mp4").getAbsolutePath();
+        player.setDataSource(dataSource);
         player.setOnpreparedListener(new ICEPlayer.OnpreparedListener() {
             @Override
             public void onPrePared() {
@@ -53,13 +59,22 @@ public class MainActivity extends AppCompatActivity {
                 });
             }
         });
+
+
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        player.prepare();
+        int flag = ContextCompat.checkSelfPermission(this,Manifest.permission.READ_EXTERNAL_STORAGE);
+        if (flag == PackageManager.PERMISSION_GRANTED) {
+            player.prepare();
+        } else {
+            ActivityCompat.requestPermissions(this,new String[]{Manifest.permission.READ_EXTERNAL_STORAGE,Manifest.permission.WRITE_EXTERNAL_STORAGE},1001);
+        }
+
     }
+
 
     /**
      * A native method that is implemented by the 'native-lib' native library,

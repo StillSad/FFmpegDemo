@@ -4,7 +4,8 @@
 
 #include "AudioChannel.h"
 
-AudioChannel::AudioChannel(int id, AVCodecContext *codecContext) : BaseChannel(id, codecContext) {
+AudioChannel::AudioChannel(int id, AVCodecContext *codecContext, AVRational time_base)
+        : BaseChannel(id, codecContext,time_base) {
     out_channels = av_get_channel_layout_nb_channels(AV_CH_LAYOUT_STEREO);
     out_sampleSize = av_get_bytes_per_sample(AV_SAMPLE_FMT_S16);
     out_sampleRate = 44100;
@@ -12,10 +13,21 @@ AudioChannel::AudioChannel(int id, AVCodecContext *codecContext) : BaseChannel(i
     out_buffers_size = out_channels * out_sampleSize * out_sampleRate;
     out_buffers = static_cast<uint8_t *>(malloc(out_buffers_size));
     memset(out_buffers, 0, out_buffers_size);
+
+    swrContext = swr_alloc_set_opts(0, AV_CH_LAYOUT_STEREO, AV_SAMPLE_FMT_S16,
+                                    out_sampleRate, codecContext->channel_layout,
+                                    codecContext->sample_fmt, codecContext->sample_rate,
+                                    0, 0);
+    //初始化重新采样上下文
+    swr_init(swrContext);
 }
 
 AudioChannel::~AudioChannel() {
-
+    if (swrContext) {
+        swr_free(&swrContext);
+        swrContext = 0;
+    }
+    DELETE(out_buffers)
 }
 
 void *task_audio_decode(void *args) {
@@ -187,13 +199,7 @@ void AudioChannel::audio_play() {
 int AudioChannel::getPCM() {
     int pcm_data_size = 0;
     AVFrame *frame = 0;
-    SwrContext *swrContext = swr_alloc_set_opts(0, AV_CH_LAYOUT_STEREO, AV_SAMPLE_FMT_S16,
-                                                out_sampleRate, codecContext->channel_layout,
-                                                codecContext->sample_fmt, codecContext->sample_rate,
-                                                0, 0);
 
-    //初始化重新采样上下文
-    swr_init(swrContext);
 
     while (isPlaying) {
         int ret = frames.pop(frame);
@@ -228,6 +234,8 @@ int AudioChannel::getPCM() {
                                       (const uint8_t **) (frame->data), frame->nb_samples);
         //获取swr_convert转换后 out_samples个*2（16位）*2(双声道)
         pcm_data_size = out_samples * out_sampleSize * out_channels;
+
+        audio_time = frame->best_effort_timestamp * av_q2d(time_base);
         break;
     }
 

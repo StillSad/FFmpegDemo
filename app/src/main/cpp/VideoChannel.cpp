@@ -34,8 +34,8 @@ void dropAVPacket(queue<AVPacket *> &q) {
      }
  }
 
-VideoChannel::VideoChannel(int id, AVCodecContext *codecContext, int fps, AVRational time_base)
-        : BaseChannel(id,codecContext,time_base) {
+VideoChannel::VideoChannel(int id, AVCodecContext *codecContext, int fps, AVRational time_base,JavaCallHelper *javaCallHelper)
+        : BaseChannel(id,codecContext,time_base,javaCallHelper) {
     this->fps = fps;
     packets.setSyncHandle(dropAVPacket);
     frames.setSyncHandle(dropAVFrame);
@@ -76,7 +76,12 @@ void VideoChannel::start() {
 }
 
 void VideoChannel::stop() {
-
+    isPlaying =0;
+    javaCallHelper = 0;
+    packets.setWork(0);
+    frames.setWork(0);
+    pthread_join(pid_video_decode,0);
+    pthread_join(pid_video_play,0);
 }
 
 
@@ -192,7 +197,7 @@ void VideoChannel::video_play() {
                     av_usleep((real_delay + time_diff) * 1000000);
                 }
             } else if(time_diff < 0) {
-                LOGE("音频比视频快: %lf", fabs(time_diff));
+                LOGD("音频比视频快: %lf", fabs(time_diff));
                 //音频比视频快：追音频(尝试丢视频包)
                 //视频包：packets 和 frames
                 if (fabs(time_diff) >= 0.05) {
@@ -202,7 +207,7 @@ void VideoChannel::video_play() {
                     continue;
                 }
             } else {
-                LOGE("音视频完美同步！");
+                LOGD("音视频完美同步！");
             }
         }
 

@@ -15,6 +15,7 @@ extern "C" {
 };
 
 class IceFFmpeg {
+    friend void *task_stop(void *args);
 public:
     IceFFmpeg(JavaCallHelper *javaCallHelper,char *dataSource);
 
@@ -30,6 +31,8 @@ public:
 
     void setRenderCallback(RenderCallback renderCallback);
 
+    void stop();
+
 private:
     JavaCallHelper *javaCallHelper = 0;
     AudioChannel *audioChannel = 0;
@@ -37,6 +40,7 @@ private:
     char *dataSource;
     pthread_t pid_prepare;
     pthread_t pid_start;
+    pthread_t pid_top;
     bool isPlaying;
     AVFormatContext *formatContext = 0;
     RenderCallback renderCallback;

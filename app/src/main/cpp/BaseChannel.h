@@ -6,6 +6,7 @@
 #define FFMPEGDEMO_BASECHANNEL_H
 
 #include "safe_queue.h"
+#include "JavaCallHelper.h"
 
 extern "C"{
 #include <libavcodec/avcodec.h>
@@ -16,7 +17,7 @@ class BaseChannel {
 public:
 
 
-    BaseChannel(int id,AVCodecContext *codecContext,AVRational time_base):id(id),codecContext(codecContext),time_base(time_base)
+    BaseChannel(int id,AVCodecContext *codecContext,AVRational time_base,JavaCallHelper *javaCallHelper):id(id),codecContext(codecContext),time_base(time_base),javaCallHelper(javaCallHelper)
     {
         packets.setReleaseCallback(releaseAVPacket);
         frames.setReleaseCallback(releaseAVFrame);
@@ -51,6 +52,7 @@ public:
     AVCodecContext *codecContext;
     AVRational time_base;
     double audio_time;
+    JavaCallHelper *javaCallHelper = 0;
 };
 
 #endif //FFMPEGDEMO_BASECHANNEL_H

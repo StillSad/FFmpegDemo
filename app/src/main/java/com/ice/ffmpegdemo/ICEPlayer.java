@@ -118,7 +118,17 @@ public class ICEPlayer implements SurfaceHolder.Callback {
 
     }
 
+    public void release() {
+        surfaceHolder.removeCallback(this);
+        releaseNative();
+    }
 
+    /**
+     * 停止播放
+     */
+    public void stop() {
+        stopNative();
+    }
     /**
      * 画布创建回调
      */
@@ -138,4 +148,8 @@ public class ICEPlayer implements SurfaceHolder.Callback {
     private native void startNative();
 
     private native void setSurfaceViewNative(Surface surface);
+
+    private native void stopNative();
+
+    private native void releaseNative();
 }

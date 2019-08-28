@@ -35,6 +35,26 @@ void *task_start(void *args) {
     return 0;
 }
 
+void *task_stop(void *args) {
+    IceFFmpeg *fFmpeg = static_cast<IceFFmpeg *>(args);
+    fFmpeg->isPlaying =0;
+    //要保证_prepare方法(子线程中)执行完在释放
+    //pthread_join:调用后会阻塞线程，所以放到子线程中调用
+    pthread_join(fFmpeg->pid_prepare,0);
+
+    if (fFmpeg->formatContext) {
+        avformat_close_input(&fFmpeg->formatContext);
+        avformat_free_context(fFmpeg->formatContext);
+        fFmpeg->formatContext = 0;
+    }
+
+    DELETE(fFmpeg->videoChannel)
+    DELETE(fFmpeg->audioChannel)
+    DELETE(fFmpeg)
+
+    return 0;
+}
+
 void IceFFmpeg::_prepare() {
 
     formatContext = avformat_alloc_context();
@@ -107,12 +127,12 @@ void IceFFmpeg::_prepare() {
         //判断流类型（音频还是视频？）
         if (codecParameters->codec_type == AVMEDIA_TYPE_AUDIO) {
             //音频
-            audioChannel = new AudioChannel(i, codecContext,time_base);
+            audioChannel = new AudioChannel(i, codecContext,time_base,javaCallHelper);
         } else if (codecParameters->codec_type == AVMEDIA_TYPE_VIDEO) {
             //视频
             AVRational fram_rate = stream->avg_frame_rate;
             int fps = av_q2d(fram_rate);
-            videoChannel = new VideoChannel(i, codecContext, fps,time_base);
+            videoChannel = new VideoChannel(i, codecContext, fps,time_base,javaCallHelper);
             videoChannel->setRenderCallback(renderCallback);
         }
     }
@@ -191,6 +211,10 @@ void IceFFmpeg::_start() {
         } else if (ret == AVERROR_EOF) {
             //表示读完了
             //要考虑读完了，是否播完了的情况
+            if (videoChannel->packets.empty() && videoChannel->frames.empty() && audioChannel->packets.empty()&&audioChannel->frames.empty()) {
+                av_packet_free(&packet);
+                break;
+            }
         } else {
             LOGE("读取音频数据包失败");
             if (javaCallHelper) {
@@ -211,4 +235,11 @@ void IceFFmpeg::_start() {
 
 void IceFFmpeg::setRenderCallback(RenderCallback renderCallback) {
     this->renderCallback = renderCallback;
+}
+
+void IceFFmpeg::stop() {
+    //prepare 阻塞中停止了，还是会回调给java 准备好了
+    javaCallHelper = 0;
+
+    pthread_create(&pid_top,0,task_stop,this);
 }

@@ -4,8 +4,8 @@
 
 #include "AudioChannel.h"
 
-AudioChannel::AudioChannel(int id, AVCodecContext *codecContext, AVRational time_base)
-        : BaseChannel(id, codecContext,time_base) {
+AudioChannel::AudioChannel(int id, AVCodecContext *codecContext, AVRational time_base,JavaCallHelper *javaCallHelper)
+        : BaseChannel(id, codecContext,time_base,javaCallHelper) {
     out_channels = av_get_channel_layout_nb_channels(AV_CH_LAYOUT_STEREO);
     out_sampleSize = av_get_bytes_per_sample(AV_SAMPLE_FMT_S16);
     out_sampleRate = 44100;
@@ -54,7 +54,12 @@ void AudioChannel::start() {
 }
 
 void AudioChannel::stop() {
-
+    isPlaying = 0;
+    javaCallHelper = 0;
+    packets.setWork(0);
+    frames.setWork(0);
+    pthread_join(pid_audio_decode,0);
+    pthread_join(pid_audio_play,0);
 }
 
 void AudioChannel::audio_decode() {
@@ -209,7 +214,6 @@ int AudioChannel::getPCM() {
         if (!ret) {
             continue;
         }
-        LOGD("音频播放中");
         //pcm数据在frame中
         //这里获得的解码后pcm格式的音频原始数据，有可能与创建的播放器中设置的pcm格式不一样
         //重采样

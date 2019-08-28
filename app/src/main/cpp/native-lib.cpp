@@ -92,3 +92,22 @@ Java_com_ice_ffmpegdemo_ICEPlayer_setSurfaceViewNative(JNIEnv *env, jobject thiz
 
     pthread_mutex_unlock(&mutex);
 }
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_ice_ffmpegdemo_ICEPlayer_stopNative(JNIEnv *env, jobject thiz) {
+  if (fFmpeg) {
+      fFmpeg->stop();
+  }
+}
+
+
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_ice_ffmpegdemo_ICEPlayer_releaseNative(JNIEnv *env, jobject thiz) {
+    // TODO: implement releaseNative()
+}
+
+
+

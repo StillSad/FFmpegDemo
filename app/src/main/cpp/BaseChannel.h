@@ -51,7 +51,6 @@ public:
     bool isPlaying = 0;
     AVCodecContext *codecContext;
     AVRational time_base;
-    double audio_time;
     JavaCallHelper *javaCallHelper = 0;
 };
 

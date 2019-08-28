@@ -36,6 +36,7 @@ public:
     int out_sampleSize;
     int out_sampleRate;
     int out_buffers_size;
+    double audio_time;
 
 private:
     SwrContext *swrContext = 0;

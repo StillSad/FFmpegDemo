@@ -57,23 +57,25 @@ public class ICEPlayer implements SurfaceHolder.Callback {
      * 表示播放器准备好了可以开始播放
      */
     public void onPrepared() {
-        if (onpreparedListener != null) {
-            onpreparedListener.onPrePared();
+        if (playerListener != null) {
+            playerListener.onPrepared();
         }
     }
 
     public void onError(int errorCode) {
-        if (null != onErrorListener) {
-            onErrorListener.onError(errorCode);
+        if (null != playerListener) {
+            playerListener.onError(errorCode);
         }
     }
 
-    void setOnpreparedListener(OnpreparedListener onpreparedListener) {
-        this.onpreparedListener = onpreparedListener;
+    public void onProgress(int progress) {
+        if (null != playerListener) {
+            playerListener.onProgress(progress);
+        }
     }
 
-    public void setOnErrorListener(OnErrorListener onErrorListener) {
-        this.onErrorListener = onErrorListener;
+    public void setPlayerListener(PlayerListener playerListener) {
+        this.playerListener = playerListener;
     }
 
 
@@ -129,19 +131,40 @@ public class ICEPlayer implements SurfaceHolder.Callback {
     public void stop() {
         stopNative();
     }
+
+
     /**
-     * 画布创建回调
+     * 获取总的播放时长
      */
+    public int getDuration() {
+        return getDurationNative();
+    }
+
     interface OnpreparedListener {
-        void onPrePared();
+
     }
 
-    public interface OnErrorListener {
+    public interface PlayerListener {
+        /**
+         * 画布创建回调
+         */
+        void onPrepared();
+
+        /**
+         * 出错回调
+         * @param errorCode 错误码
+         */
         void onError(int errorCode);
+
+        /**
+         * 播放进度回调
+         * @param progress 进度
+         */
+        void onProgress(int progress);
+
     }
 
-    private OnpreparedListener onpreparedListener;
-    private OnErrorListener onErrorListener;
+    private PlayerListener playerListener;
 
     private native void prepareNative(String dataSource);
 
@@ -152,4 +175,6 @@ public class ICEPlayer implements SurfaceHolder.Callback {
     private native void stopNative();
 
     private native void releaseNative();
+
+    private native int getDurationNative();
 }

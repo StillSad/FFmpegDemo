@@ -80,6 +80,7 @@ void IceFFmpeg::_prepare() {
         return;
     }
 
+    duration = formatContext->duration / AV_TIME_BASE;
     //这里的 i 就是后面 166行的 packet->stream_index
     for (int i = 0; i < formatContext->nb_streams; ++i) {
         //3获取媒体流（音频或视频）
@@ -242,4 +243,8 @@ void IceFFmpeg::stop() {
     javaCallHelper = 0;
 
     pthread_create(&pid_top,0,task_stop,this);
+}
+
+int IceFFmpeg::getDuration() const {
+    return duration;
 }

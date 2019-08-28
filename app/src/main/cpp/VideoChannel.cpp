@@ -181,8 +181,14 @@ void VideoChannel::video_play() {
             //没有音频（类似GIF）
             //单位是微妙
             av_usleep(real_delay * 1000000);
+            if (javaCallHelper) {
+                javaCallHelper->onProgress(THREAD_CHILD,video_time);
+            }
         } else {
             double audioTime = audioChannel->audio_time;
+            if (javaCallHelper) {
+                javaCallHelper->onProgress(THREAD_CHILD,audioTime);
+            }
             //获取音视频播放的时间差
             double  time_diff = video_time - audioTime;
             if (time_diff > 0) {

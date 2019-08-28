@@ -106,8 +106,23 @@ Java_com_ice_ffmpegdemo_ICEPlayer_stopNative(JNIEnv *env, jobject thiz) {
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_ice_ffmpegdemo_ICEPlayer_releaseNative(JNIEnv *env, jobject thiz) {
-    // TODO: implement releaseNative()
+
+    pthread_mutex_lock(&mutex);
+    if (window) {
+        ANativeWindow_release(window);
+        window = 0;
+    }
+    pthread_mutex_unlock(&mutex);
+    DELETE(fFmpeg)
 }
 
 
 
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_ice_ffmpegdemo_ICEPlayer_getDurationNative(JNIEnv *env, jobject thiz) {
+    if (fFmpeg) {
+        return fFmpeg->getDuration();
+    }
+    return 0;
+}

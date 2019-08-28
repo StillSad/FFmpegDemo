@@ -240,6 +240,7 @@ int AudioChannel::getPCM() {
         pcm_data_size = out_samples * out_sampleSize * out_channels;
 
         audio_time = frame->best_effort_timestamp * av_q2d(time_base);
+
         break;
     }
 

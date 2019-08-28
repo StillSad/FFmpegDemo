@@ -9,11 +9,13 @@ IceFFmpeg::IceFFmpeg(JavaCallHelper *javaCallHelper, char *dataSource) {
 
     this->dataSource = new char[strlen(dataSource) + 1];
     strcpy(this->dataSource, dataSource);
+    pthread_mutex_init(&seekMutex,0);
 }
 
 IceFFmpeg::~IceFFmpeg() {
     DELETE(dataSource);
     DELETE(javaCallHelper);
+    pthread_mutex_destroy(&seekMutex);
 }
 
 /**
@@ -42,11 +44,16 @@ void *task_stop(void *args) {
     //pthread_join:调用后会阻塞线程，所以放到子线程中调用
     pthread_join(fFmpeg->pid_prepare,0);
 
+    //停止解码播放（音频和视频）
+    fFmpeg->videoChannel->stop();
+    fFmpeg->audioChannel->stop();
+
     if (fFmpeg->formatContext) {
         avformat_close_input(&fFmpeg->formatContext);
         avformat_free_context(fFmpeg->formatContext);
         fFmpeg->formatContext = 0;
     }
+
 
     DELETE(fFmpeg->videoChannel)
     DELETE(fFmpeg->audioChannel)
@@ -247,4 +254,52 @@ void IceFFmpeg::stop() {
 
 int IceFFmpeg::getDuration() const {
     return duration;
+}
+
+void IceFFmpeg::seekTo(int playProgress) {
+    if(playProgress <0 || playProgress > duration) {
+        return;
+    }
+
+    if (!audioChannel && !videoChannel) {
+        return;
+    }
+
+    if (!formatContext) {
+        return;
+    }
+
+    pthread_mutex_lock(&seekMutex);
+    int ret = av_seek_frame(formatContext,-1,playProgress * AV_TIME_BASE,AVSEEK_FLAG_BACKWARD);
+
+    if (ret <0) {
+        if (javaCallHelper) {
+            javaCallHelper->onError(THREAD_CHILD,ret);
+            return;
+        }
+    }
+
+    if (audioChannel) {
+        audioChannel->packets.setWork(0);
+        audioChannel->frames.setWork(0);
+
+        audioChannel->packets.clear();
+        audioChannel->frames.clear();
+
+        audioChannel->packets.setWork(1);
+        audioChannel->frames.setWork(1);
+    }
+
+    if (videoChannel) {
+        videoChannel->packets.setWork(0);
+        videoChannel->frames.setWork(0);
+        videoChannel->packets.clear();
+        videoChannel->frames.clear();
+        //清除数据后，让队列重新工作
+        videoChannel->packets.setWork(1);
+        videoChannel->frames.setWork(1);
+    }
+
+    pthread_mutex_unlock(&seekMutex);
+
 }

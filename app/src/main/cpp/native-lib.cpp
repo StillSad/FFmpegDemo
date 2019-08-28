@@ -125,4 +125,10 @@ Java_com_ice_ffmpegdemo_ICEPlayer_getDurationNative(JNIEnv *env, jobject thiz) {
         return fFmpeg->getDuration();
     }
     return 0;
+}extern "C"
+JNIEXPORT void JNICALL
+Java_com_ice_ffmpegdemo_ICEPlayer_seekToNative(JNIEnv *env, jobject thiz, jint play_progress) {
+    if (fFmpeg) {
+        fFmpeg->seekTo(play_progress);
+    }
 }

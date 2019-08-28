@@ -140,6 +140,19 @@ public class ICEPlayer implements SurfaceHolder.Callback {
         return getDurationNative();
     }
 
+
+    /**
+     * 播放进度跳转
+     */
+    public void seekTo(final int playProgress) {
+        new Thread(){
+            @Override
+            public void run() {
+                seekToNative(playProgress);
+            }
+        }.start();
+    }
+
     interface OnpreparedListener {
 
     }
@@ -177,4 +190,7 @@ public class ICEPlayer implements SurfaceHolder.Callback {
     private native void releaseNative();
 
     private native int getDurationNative();
+
+    private native void seekToNative(int playProgress);
+
 }

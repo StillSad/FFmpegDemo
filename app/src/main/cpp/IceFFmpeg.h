@@ -37,6 +37,7 @@ public:
 
     int getDuration() const;
 
+    void seekTo(int i);
 
 private:
     JavaCallHelper *javaCallHelper = 0;
@@ -50,6 +51,7 @@ private:
     AVFormatContext *formatContext = 0;
     RenderCallback renderCallback;
     int duration;
+    pthread_mutex_t seekMutex;
 
 };
 

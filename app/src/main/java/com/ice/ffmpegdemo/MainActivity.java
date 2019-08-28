@@ -9,6 +9,7 @@ import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.MotionEvent;
 import android.view.SurfaceView;
 import android.view.View;
 import android.widget.SeekBar;
@@ -17,11 +18,12 @@ import android.widget.Toast;
 
 import java.io.File;
 
-public class MainActivity extends AppCompatActivity implements ICEPlayer.PlayerListener, SeekBar.OnSeekBarChangeListener {
+public class MainActivity extends AppCompatActivity implements ICEPlayer.PlayerListener, SeekBar.OnSeekBarChangeListener, View.OnTouchListener {
     private static final String TAG = "MainActivity";
     private SurfaceView surfaceView;
     private SeekBar seekBar;
     private ICEPlayer player;
+    private boolean isSeek;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -31,6 +33,7 @@ public class MainActivity extends AppCompatActivity implements ICEPlayer.PlayerL
         surfaceView = findViewById(R.id.surfaceView);
         seekBar = findViewById(R.id.seekBar);
         seekBar.setOnSeekBarChangeListener(this);
+        seekBar.setOnTouchListener(this);
         player = new ICEPlayer();
         player.setSurfaceView(surfaceView);
 //        String dataSource = "http://ivi.bupt.edu.cn/hls/cctv6hd.m3u8";
@@ -40,21 +43,26 @@ public class MainActivity extends AppCompatActivity implements ICEPlayer.PlayerL
         player.setPlayerListener(this);
 
 
-
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        int flag = ContextCompat.checkSelfPermission(this,Manifest.permission.READ_EXTERNAL_STORAGE);
+        int flag = ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE);
         if (flag == PackageManager.PERMISSION_GRANTED) {
             player.prepare();
         } else {
-            ActivityCompat.requestPermissions(this,new String[]{Manifest.permission.READ_EXTERNAL_STORAGE,Manifest.permission.WRITE_EXTERNAL_STORAGE},1001);
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE}, 1001);
         }
 
     }
 
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        player.stop();
+    }
 
     /**
      * A native method that is implemented by the 'native-lib' native library,
@@ -76,8 +84,8 @@ public class MainActivity extends AppCompatActivity implements ICEPlayer.PlayerL
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                Log.e(TAG,"开始播放");
-                Toast.makeText(MainActivity.this,"开始播放！",Toast.LENGTH_SHORT).show();
+                Log.e(TAG, "开始播放");
+                Toast.makeText(MainActivity.this, "开始播放！", Toast.LENGTH_SHORT).show();
             }
         });
 
@@ -97,23 +105,26 @@ public class MainActivity extends AppCompatActivity implements ICEPlayer.PlayerL
 
     @Override
     public void onProgress(final int progress) {
-        Log.d("progress","" + progress);
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
                 int duration = player.getDuration();
-                if (duration != 0) {
+                Log.d("seek", "progress：" + progress + ",duration:" + duration);
+
+                if (duration != 0 && !isSeek) {
                     seekBar.setProgress(progress * 100 / duration);
                 }
             }
         });
     }
 
+
+    //seek的核心思路
+    //跟随播放进度自动刷新进度：拿到每个时间点相对总播放时长的百分比进度 progress
+    //1.总时间getDurationNative
+    //2.当前播放时间：跟谁播放进度动态变化
     @Override
     public void onProgressChanged(final SeekBar seekBar, final int progress, boolean fromUser) {
-
-
-
     }
 
     @Override
@@ -123,12 +134,34 @@ public class MainActivity extends AppCompatActivity implements ICEPlayer.PlayerL
 
     @Override
     public void onStopTrackingTouch(SeekBar seekBar) {
-
+        //获取seekbar当前进度（百分比）
+        int seekBarProgress = seekBar.getProgress();
+        //将seekbar的进度转换成真实的播放进度
+        int duration = player.getDuration();
+        int playProgress = seekBarProgress * duration / 100;
+        //将播放进度传给底层ffmpeg
+        player.seekTo(playProgress);
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
         player.release();
+    }
+
+    @Override
+    public boolean onTouch(View v, MotionEvent event) {
+        switch (event.getAction()) {
+            case MotionEvent.ACTION_DOWN:
+                isSeek = true;
+
+                break;
+            case MotionEvent.ACTION_UP:
+                isSeek = false;
+
+                break;
+        }
+
+        return false;
     }
 }
